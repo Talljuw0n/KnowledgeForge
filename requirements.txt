@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+pydantic_settings
+pymupdf
+python-docx
+faiss-cpu
+sentence-transformers
