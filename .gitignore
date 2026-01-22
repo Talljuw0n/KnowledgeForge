@@ -8,6 +8,11 @@ env/
 .env
 .env.local
 
+data/
+   data/vector_store/
+   *.faiss
+   *.pkl
+
 # Build output
 dist/
 build/
