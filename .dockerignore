@@ -1,49 +1,47 @@
-# Edit .dockerignore
-notepad .dockerignore
-```
 
-Add this content:
-```
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
+# Virtual environments
 venv/
+env/
 ENV/
-.venv
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
 
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Data directories
+data/
+uploads/
+vector_store/
+
+# Frontend
+kb-frontend/node_modules/
+kb-frontend/dist/
+kb-frontend/.next/
 
 # Git
 .git/
 .gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Node (if any)
-node_modules/
-
-# Test and docs
+# Docs and tests
+*.md
+README.md
 tests/
 docs/
-*.md
 
-# Data and uploads
-uploads/
-data/
-*.db
-*.sqlite
-
-# Misc
+# Environment
 .env
+.env.local
 *.log
