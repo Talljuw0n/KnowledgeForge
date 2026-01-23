@@ -6,3 +6,5 @@ pymupdf
 python-docx
 faiss-cpu
 sentence-transformers
+Pillow
+pytesseract
