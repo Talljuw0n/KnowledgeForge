@@ -1,5 +1,49 @@
-fly.toml
-.git/
+# Edit .dockerignore
+notepad .dockerignore
+```
+
+Add this content:
+```
+# Python
 __pycache__/
-.envrc
-.venv/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (if any)
+node_modules/
+
+# Test and docs
+tests/
+docs/
+*.md
+
+# Data and uploads
+uploads/
+data/
+*.db
+*.sqlite
+
+# Misc
+.env
+*.log
