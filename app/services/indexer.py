@@ -34,7 +34,7 @@ class Indexer:
         metadatas = []
         for chunk in chunks:
             metadata = chunk["metadata"].copy()
-            metadata["document_id"] = document_id  # ADD THIS LINE
+            metadata["document_id"] = document_id  
             metadatas.append(metadata)
         
         # Add new vectors
