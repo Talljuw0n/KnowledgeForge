@@ -1,4 +1,4 @@
-# fly.toml app configuration file generated for knowledgeforge on 2026-01-22T15:15:48Z
+# fly.toml app configuration file generated for knowledgeforge on 2026-02-12T15:54:19+01:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
@@ -9,7 +9,7 @@ primary_region = 'ams'
 [build]
 
 [processes]
-app = ".venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8080"
+  app = '.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8080'
 
 [http_service]
   internal_port = 8080
@@ -23,5 +23,4 @@ app = ".venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8080"
   memory = '2gb'
   cpu_kind = 'shared'
   cpus = 1
-
-
+  memory_mb = 2048

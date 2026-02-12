@@ -8,3 +8,5 @@ faiss-cpu
 sentence-transformers
 Pillow
 pytesseract
+supabase
+groq
