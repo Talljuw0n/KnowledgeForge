@@ -1,35 +1,52 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Query
 from app.services.retriever import Retriever
 from app.services.llm import LLMService, save_chat
 from app.services.memory import ChatMemory
 from app.services.llm import rate_limit
+from app.services.supabase_client import supabase
+import logging
 import uuid
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
-# ✅ Keep in-memory cache for fast access
 memory = ChatMemory(max_turns=20, max_tokens=4000)
 
 
+def _authenticate_ws(token: str):
+    """Validate bearer token and return the user, or raise ValueError."""
+    try:
+        user_response = supabase.auth.get_user(token)
+        user = user_response.user
+        if user is None:
+            raise ValueError("Invalid token")
+        return user
+    except Exception as e:
+        raise ValueError(f"Authentication failed: {e}")
+
+
 @router.websocket("/ws/chat")
-async def chat_ws(websocket: WebSocket):
+async def chat_ws(
+    websocket: WebSocket,
+    token: str = Query(..., description="Supabase bearer token"),
+):
+    # Authenticate before accepting the connection
+    try:
+        user = _authenticate_ws(token)
+    except ValueError as e:
+        await websocket.close(code=4001, reason=str(e))
+        return
+
     await websocket.accept()
+    user_id = user.id
     session_id = None
-    
+    logger.info(f"WebSocket connected for user {user_id}")
+
     try:
         while True:
-            # Receive message from client
             data = await websocket.receive_json()
             question = data.get("question")
             session_id = data.get("session_id") or session_id or str(uuid.uuid4())
-            user_id = data.get("user_id")  # Client must send user_id
-            
-            if not user_id:
-                await websocket.send_json({
-                    "type": "error",
-                    "message": "user_id is required"
-                })
-                continue
 
             # 🛡️ Apply rate limit
             try:
@@ -94,16 +111,16 @@ async def chat_ws(websocket: WebSocket):
             llm = LLMService()
             full_answer = ""
             
-            for token in llm.stream_answer(
+            for chunk in llm.stream_answer(
                 question=question,
                 context=context,
                 user_id=user_id,
                 session_id=session_id
             ):
-                full_answer += token
+                full_answer += chunk
                 await websocket.send_json({
                     "type": "token",
-                    "content": token
+                    "content": chunk
                 })
             
             # Save to BOTH after streaming completes:
@@ -127,13 +144,10 @@ async def chat_ws(websocket: WebSocket):
             })
     
     except WebSocketDisconnect:
-        print(f"WebSocket disconnected for session: {session_id}")
+        logger.info(f"WebSocket disconnected for user {user_id}, session {session_id}")
     except Exception as e:
-        print(f"Error in WebSocket: {str(e)}")
+        logger.error(f"Error in WebSocket for user {user_id}: {e}", exc_info=True)
         try:
-            await websocket.send_json({
-                "type": "error",
-                "message": str(e)
-            })
-        except:
+            await websocket.send_json({"type": "error", "message": str(e)})
+        except Exception:
             pass

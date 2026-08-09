@@ -21,36 +21,31 @@ export function useConversations(messages, selectedDocs, sessionId) {
   const loadConversations = async (uid) => {
     try {
       const { data, error } = await supabase
-        .from('conversations')
-        .select('*')
-        .eq('user_id', uid) // Only get THIS user's conversations
-        .order('updated_at', { ascending: false });
+        .from("conversations")
+        .select("*")
+        .eq("user_id", uid)
+        .order("updated_at", { ascending: false });
 
-      if (error) throw error;
-      
+      // Silently ignore "relation does not exist" — table not created yet
+      if (error) {
+        if (error.code !== "42P01") {
+          console.error("Error loading conversations:", error.message);
+        }
+        return;
+      }
+
       setConversations(data || []);
-      console.log(`✅ Loaded ${data?.length || 0} conversations for user`);
-    } catch (error) {
-      console.error("Error loading conversations:", error);
+    } catch (err) {
+      console.error("Error loading conversations:", err);
     }
   };
 
-  const generateTitle = (messages) => {
-    if (!messages || messages.length === 0) return "New Chat";
-    
-    const firstUserMessage = messages.find(m => m.role === "user");
-    if (!firstUserMessage) return "New Chat";
-    
-    let title = firstUserMessage.content
-      .trim()
-      .replace(/\n/g, ' ')
-      .slice(0, 50);
-    
-    if (firstUserMessage.content.length > 50) {
-      title += "...";
-    }
-    
-    return title;
+  const generateTitle = (msgs) => {
+    if (!msgs || msgs.length === 0) return "New Chat";
+    const first = msgs.find(m => m.role === "user");
+    if (!first) return "New Chat";
+    const title = first.content.trim().replace(/\n/g, " ").slice(0, 50);
+    return first.content.length > 50 ? title + "…" : title;
   };
 
   const saveConversation = async (convId = null) => {
@@ -58,51 +53,45 @@ export function useConversations(messages, selectedDocs, sessionId) {
 
     try {
       const conversationId = convId || currentConversationId || crypto.randomUUID();
-      
+
       const conversationData = {
         id: conversationId,
-        user_id: userId, // IMPORTANT: Save with user ID
+        user_id: userId,
         title: generateTitle(messages),
         messages: messages,
         selected_docs: selectedDocs,
         session_id: sessionId,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
 
-      // Check if conversation exists
       const { data: existing } = await supabase
-        .from('conversations')
-        .select('id')
-        .eq('id', conversationId)
-        .eq('user_id', userId)
+        .from("conversations")
+        .select("id")
+        .eq("id", conversationId)
+        .eq("user_id", userId)
         .single();
 
       if (existing) {
-        // Update existing
         const { error } = await supabase
-          .from('conversations')
+          .from("conversations")
           .update(conversationData)
-          .eq('id', conversationId)
-          .eq('user_id', userId);
+          .eq("id", conversationId)
+          .eq("user_id", userId);
 
-        if (error) throw error;
+        if (error && error.code !== "42P01") throw error;
       } else {
-        // Insert new
         conversationData.created_at = new Date().toISOString();
-        
         const { error } = await supabase
-          .from('conversations')
+          .from("conversations")
           .insert([conversationData]);
 
-        if (error) throw error;
+        if (error && error.code !== "42P01") throw error;
         setCurrentConversationId(conversationId);
       }
 
-      // Reload conversations
       await loadConversations(userId);
-      
-    } catch (error) {
-      console.error("Error saving conversation:", error);
+    } catch (err) {
+      console.error("Error saving conversation:", err);
     }
   };
 
@@ -116,25 +105,22 @@ export function useConversations(messages, selectedDocs, sessionId) {
 
   const deleteConversation = async (conversationId) => {
     if (!window.confirm("Delete this conversation?")) return;
-    
+
     try {
       const { error } = await supabase
-        .from('conversations')
+        .from("conversations")
         .delete()
-        .eq('id', conversationId)
-        .eq('user_id', userId); // Only delete if it belongs to this user
+        .eq("id", conversationId)
+        .eq("user_id", userId);
 
-      if (error) throw error;
+      if (error && error.code !== "42P01") throw error;
 
       setConversations(prev => prev.filter(c => c.id !== conversationId));
-      
       if (currentConversationId === conversationId) {
         setCurrentConversationId(null);
       }
-      
-      console.log("✅ Conversation deleted");
-    } catch (error) {
-      console.error("Error deleting conversation:", error);
+    } catch (err) {
+      console.error("Error deleting conversation:", err);
     }
   };
 
@@ -144,6 +130,6 @@ export function useConversations(messages, selectedDocs, sessionId) {
     loadConversation,
     startNewConversation,
     deleteConversation,
-    saveConversation
+    saveConversation,
   };
 }

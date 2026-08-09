@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="KnowledgeForge">
+  <rect width="64" height="64" rx="14" fill="#ffffff"></rect>
+  <rect x="12" y="10" width="30" height="20" rx="4" fill="#12876a" fill-opacity="0.45"></rect>
+  <rect x="17" y="21" width="30" height="20" rx="4" fill="#12876a" fill-opacity="0.7" stroke="#ffffff" stroke-width="3.5"></rect>
+  <rect x="22" y="32" width="30" height="20" rx="4" fill="#12876a" fill-opacity="1" stroke="#ffffff" stroke-width="3.5"></rect>
+</svg>

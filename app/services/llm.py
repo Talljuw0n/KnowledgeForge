@@ -55,6 +55,10 @@ supabase = create_client(
 RATE_LIMIT_REQUESTS = 20   # max requests
 RATE_LIMIT_WINDOW = 60     # seconds
 
+# NOTE: this dict is per-process. On multi-instance deployments (e.g. Fly.io
+# with >1 machine) each instance tracks its own counter, so a user can
+# exceed the limit by spreading requests across instances. To enforce a global
+# limit, replace this with a Redis-backed counter.
 user_requests = defaultdict(list)
 
 

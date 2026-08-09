@@ -2,16 +2,168 @@
 @tailwind components;
 @tailwind utilities;
 
-* {
+*, *::before, *::after {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
+}
+
+:root {
+  /* Backgrounds */
+  --bg:              #f5f7f6;
+  --surface:         #ffffff;
+  --surface-2:       #f9fbfa;
+  --surface-3:       #eef1ef;
+
+  /* Text */
+  --text:            #16201c;
+  --text-2:          #3d4a45;
+  --text-3:          #5f6b66;
+  --text-4:          #7b8681;
+  --text-5:          #9aa5a0;
+
+  /* Borders */
+  --border:          #e3e7e4;
+  --border-strong:   #d9dfdb;
+  --border-dashed:   #c6d3cd;
+  --divider:         #f1f4f2;
+
+  /* Primary (green) */
+  --primary:         #12876a;
+  --primary-hover:   #0f7358;
+  --primary-ink:     #0b5c47;
+  --primary-link:    #0f7a5f;
+  --primary-tint:    #dff2ec;
+  --primary-tint-2:  #f0f5f2;
+  --primary-tint-border: #dbe8e2;
+  --primary-tint-hover:  #b9ded0;
+  --progress:        #3fae8c;
+  --selection:       #cdeade;
+
+  /* Shadows */
+  --shadow-card:  0 2px 6px rgba(22,32,28,0.04);
+  --shadow-hover: 0 6px 18px rgba(22,32,28,0.08);
+  --shadow-modal: 0 14px 40px rgba(22,32,28,0.07);
+  --shadow-thumb: 0 1px 3px rgba(22,32,28,0.12);
+}
+
+::selection {
+  background: var(--selection);
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'Archivo', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Typing indicator dots */
+@keyframes dot-pulse {
+  0%, 60%, 100% { opacity: 0.3; }
+  30%           { opacity: 1; }
+}
+
+.typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-5);
+  animation: dot-pulse 1.2s ease infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* Message fade-in */
+@keyframes msg-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.msg-in { animation: msg-in 0.18s ease; }
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-3) 25%, var(--surface-2) 50%, var(--surface-3) 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: 8px;
+}
+
+/* Mobile: hide desktop header nav / search / upload at ≤768px */
+@media (max-width: 768px) {
+  .header-nav,
+  .header-search,
+  .header-upload {
+    display: none !important;
+  }
+
+  /* Bottom tab bar safe-area padding */
+  main {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* Auth page: single column */
+  .auth-card {
+    grid-template-columns: 1fr !important;
+  }
+  .auth-right-col {
+    display: none !important;
+  }
+
+  /* Chat: hide sidebar, full-width thread */
+  .chat-sidebar {
+    display: none !important;
+  }
+  .chat-body {
+    padding: 12px !important;
+    gap: 0 !important;
+  }
+
+  /* Document: single column */
+  .doc-layout {
+    grid-template-columns: 1fr !important;
+  }
+  .doc-rail {
+    order: -1;
+  }
+
+  /* Library: full bleed table on small screens */
+  .library-table-card {
+    border-radius: 10px !important;
+  }
+
+  /* Home: single column */
+  .home-cols {
+    grid-template-columns: 1fr !important;
+  }
+  .home-rail {
+    display: none !important;
+  }
+
+  /* Input font size: prevent iOS zoom */
+  input, textarea {
+    font-size: 16px !important;
+  }
 }

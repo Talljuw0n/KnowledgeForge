@@ -102,19 +102,33 @@ async def delete_document(
     filename: str,
     user = Depends(get_current_user)
 ):
-    """Delete a document for the authenticated user"""
-    from app.services.database import delete_document
-    from app.services.retriever import Retriever
-    
+    """Delete a document and its vectors for the authenticated user"""
+    from app.services.database import delete_document, get_user_documents
+    from app.services.vector_store import FAISSVectorStore
+    from pathlib import Path
+
     user_id = user.id
-    
-    # Delete from database
+
+    # Look up the document_id before deleting
+    docs = get_user_documents(user_id)
+    doc = next((d for d in docs if d["filename"] == filename), None)
+
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    document_id = doc["id"]
+
+    # Remove vectors from FAISS index
+    store_path = Path(f"data/vector_store/{user_id}")
+    if store_path.exists():
+        vector_store = FAISSVectorStore(dim=384, store_path=store_path)
+        vector_store.load()
+        vector_store.delete_by_document_id(document_id)
+        vector_store.save()
+
+    # Remove metadata from database
     delete_document(user_id=user_id, filename=filename)
-    
-    # Note: This deletes the metadata, but not specific vectors from FAISS
-    # For complete deletion, you'd need to rebuild the vectorstore without this document
-    # For now, we're just removing the metadata
-    
+
     return {
         "message": f"Document {filename} deleted",
         "user_id": user_id

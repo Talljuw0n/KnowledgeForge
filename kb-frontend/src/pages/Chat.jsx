@@ -1,166 +1,136 @@
 import { useState, useRef, useEffect } from "react";
-import { supabase, signOut } from "../api/auth";
-import { useNavigate } from "react-router-dom";
-import Sidebar from "../components/chat/Sidebar";
-import ChatMessages from "../components/chat/ChatMessages";
-import ChatInput from "../components/chat/ChatInput";
+import { useLocation } from "react-router-dom";
+import Header from "../components/Header";
+import ChatSidebar from "../components/chat/ChatSidebar";
+import ChatThread from "../components/chat/ChatThread";
 import DocumentManager from "../components/chat/DocumentManager";
 import { useChatLogic } from "../components/chat/useChatLogic";
 import { useConversations } from "../components/chat/useConversations";
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function Chat() {
-  const navigate = useNavigate();
+  const location = useLocation();
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Chat state and logic
+  // Capture location.state once at mount — don't re-read on re-renders
+  const pendingDocId = useRef(location.state?.documentId || null);
+  const pendingQuestion = useRef(location.state?.question || null);
+
   const {
-    messages, setMessages, input, setInput, loading, setLoading,
+    messages, setMessages, input, setInput, loading,
     sessionId, setSessionId, selectedDocs, setSelectedDocs,
     documents, fetchDocuments, toggleDocument, selectAllDocs, deselectAllDocs,
     followUpSuggestions, setFollowUpSuggestions,
-    hoveredMessageId, setHoveredMessageId,
-    editingMessageId, setEditingMessageId,
-    editingText, setEditingText,
-    uploadingFile, setUploadingFile,
+    uploadingFile,
     userName, userEmail,
-    sendMessage, copyMessage, startEditingMessage, 
-    saveEditedMessage, deleteMessage, handleFileUpload
+    sendMessage, copyMessage, handleFileUpload,
   } = useChatLogic(API_URL, messagesEndRef, fileInputRef);
 
-  // Conversation management
   const {
-    conversations,
-    currentConversationId,
-    loadConversation,
-    startNewConversation,
-    deleteConversation,
-    saveConversation
+    conversations, currentConversationId,
+    loadConversation, startNewConversation,
+    deleteConversation, saveConversation,
   } = useConversations(messages, selectedDocs, sessionId);
 
-  const [showSidebar, setShowSidebar] = useState(true);
   const [showDocManager, setShowDocManager] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Auto-scroll to bottom
+  // Load documents once at mount
+  useEffect(() => { fetchDocuments(); }, []);
+
+  // Pre-fill question from navigation state
+  useEffect(() => {
+    if (pendingQuestion.current) {
+      setInput(pendingQuestion.current);
+      pendingQuestion.current = null;
+    }
+  }, []);
+
+  // After documents load, apply any pre-selected document from navigation state.
+  // This must run AFTER fetchDocuments (which auto-selects all docs), so we
+  // watch the `documents` array and override once when pendingDocId is set.
+  useEffect(() => {
+    if (pendingDocId.current && documents.length > 0) {
+      const docId = pendingDocId.current;
+      const exists = documents.find(d => String(d.id) === String(docId));
+      if (exists) setSelectedDocs([docId]);
+      pendingDocId.current = null;
+    }
+  }, [documents]);
+
+  // Auto-scroll on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Load initial data
+  // Auto-save conversation on message change
   useEffect(() => {
-    fetchDocuments();
-  }, []);
-
-  // Auto-save conversation
-  useEffect(() => {
-    if (messages.length > 0) {
-      saveConversation(currentConversationId);
-    }
+    if (messages.length > 0) saveConversation(currentConversationId);
   }, [messages]);
 
-  const handleSignOut = async () => {
-    await signOut();
-    navigate("/");
+  const handleLoadConversation = (conv) => {
+    loadConversation(conv);
+    setMessages(conv.messages || []);
+    setSelectedDocs(conv.selected_docs || []);
+    setSessionId(conv.session_id || null);
+    setFollowUpSuggestions([]);
+    setDrawerOpen(false);
   };
 
-  const handleLoadConversation = (conv) => {
-  loadConversation(conv);
-  setMessages(conv.messages || []); // Handle new structure
-  setSelectedDocs(conv.selected_docs || []); // Note: selected_docs (with underscore)
-  setSessionId(conv.session_id || null); // Note: session_id (with underscore)
-  setFollowUpSuggestions([]);
-};
-
-  const handleStartNewConversation = () => {
+  const handleNewConversation = () => {
     startNewConversation();
     setMessages([]);
     setSessionId(null);
     setInput("");
     setFollowUpSuggestions([]);
-    // Don't clear selectedDocs - keep current document selection
+    setDrawerOpen(false);
   };
 
+  const activeDocNames = documents
+    .filter(d => selectedDocs.includes(d.id))
+    .map(d => d.filename);
+
   return (
-    <div style={styles.container}>
-      <Sidebar
-        show={showSidebar}
-        userName={userName}
-        userEmail={userEmail}
-        conversations={conversations}
-        currentConversationId={currentConversationId}
-        onNewChat={handleStartNewConversation}
-        onLoadConversation={handleLoadConversation}
-        onDeleteConversation={deleteConversation}
-        onSignOut={handleSignOut}
-        onToggleSidebar={() => setShowSidebar(false)}
-      />
+    <div style={s.root}>
+      <Header userName={userName} userEmail={userEmail} />
 
-      <div style={styles.mainArea}>
-        {/* Header */}
-        <div style={styles.header}>
-          <div style={styles.headerLeft}>
-            {!showSidebar && (
-              <button onClick={() => setShowSidebar(true)} style={styles.menuBtn}>
-                ☰
-              </button>
-            )}
-            <div>
-              <h1 style={styles.title}>KnowledgeForge</h1>
-              <p style={styles.subtitle}>
-                {selectedDocs.length > 0 
-                  ? `${selectedDocs.length} document${selectedDocs.length > 1 ? 's' : ''} selected`
-                  : "No documents selected"}
-              </p>
-            </div>
-          </div>
-          <div style={styles.headerRight}>
-            <button 
-              onClick={() => setShowDocManager(true)} 
-              style={styles.docBtn}
-              title="Manage documents"
-            >
-              📄 Documents ({selectedDocs.length})
-            </button>
-          </div>
+      <div style={s.body}>
+        {/* Mobile drawer overlay */}
+        {drawerOpen && (
+          <div style={s.drawerOverlay} onClick={() => setDrawerOpen(false)} />
+        )}
+
+        {/* Sidebar */}
+        <aside style={{ ...s.sidebar, ...(drawerOpen ? s.sidebarOpen : {}) }}>
+          <ChatSidebar
+            conversations={conversations}
+            currentConversationId={currentConversationId}
+            onNewChat={handleNewConversation}
+            onLoadConversation={handleLoadConversation}
+            onDeleteConversation={deleteConversation}
+          />
+        </aside>
+
+        {/* Thread panel */}
+        <div style={s.thread}>
+          <ChatThread
+            messages={messages}
+            loading={loading}
+            input={input}
+            userName={userName}
+            selectedDocs={selectedDocs}
+            activeDocNames={activeDocNames}
+            followUpSuggestions={followUpSuggestions}
+            messagesEndRef={messagesEndRef}
+            onInputChange={setInput}
+            onSend={sendMessage}
+            onSuggestionClick={(s_) => { setInput(s_); setFollowUpSuggestions([]); }}
+            onCopyMessage={copyMessage}
+            onOpenDocManager={() => setShowDocManager(true)}
+          />
         </div>
-
-        <ChatMessages
-          messages={messages}
-          loading={loading}
-          userName={userName}
-          hoveredMessageId={hoveredMessageId}
-          editingMessageId={editingMessageId}
-          editingText={editingText}
-          followUpSuggestions={followUpSuggestions}
-          messagesEndRef={messagesEndRef}
-          onMessageHover={setHoveredMessageId}
-          onCopyMessage={copyMessage}
-          onStartEditing={startEditingMessage}
-          onSaveEdit={saveEditedMessage}
-          onCancelEdit={() => {
-            setEditingMessageId(null);
-            setEditingText("");
-          }}
-          onDeleteMessage={deleteMessage}
-          onEditTextChange={setEditingText}
-          onSuggestionClick={(suggestion) => {
-            setInput(suggestion);
-            setFollowUpSuggestions([]);
-          }}
-        />
-
-        <ChatInput
-          input={input}
-          loading={loading}
-          selectedDocs={selectedDocs}
-          uploadingFile={uploadingFile}
-          fileInputRef={fileInputRef}
-          onInputChange={setInput}
-          onSendMessage={sendMessage}
-          onFileUpload={handleFileUpload}
-        />
       </div>
 
       <DocumentManager
@@ -179,32 +149,51 @@ export default function Chat() {
   );
 }
 
-const styles = {
-  container: { display: "flex", height: "100vh", backgroundColor: "#f5f5f5" },
-  mainArea: { flex: 1, display: "flex", flexDirection: "column" },
-  header: {
-    backgroundColor: "white", padding: "20px 30px",
-    borderBottom: "1px solid #e5e7eb", display: "flex",
-    justifyContent: "space-between", alignItems: "center"
+const s = {
+  root: {
+    display: "flex",
+    flexDirection: "column",
+    height: "100vh",
+    overflow: "hidden",
+    backgroundColor: "#f5f7f6",
   },
-  headerLeft: { display: "flex", alignItems: "center", gap: "15px" },
-  headerRight: { display: "flex", alignItems: "center", gap: "10px" },
-  menuBtn: {
-    padding: "8px 12px", backgroundColor: "#f3f4f6",
-    border: "none", borderRadius: "8px", fontSize: "20px", 
-    cursor: "pointer", color: "#374151"
+  body: {
+    flex: 1,
+    display: "flex",
+    overflow: "hidden",
+    maxWidth: "1240px",
+    width: "100%",
+    margin: "0 auto",
+    padding: "26px 28px 40px",
+    gap: "24px",
+    alignItems: "stretch",
   },
-  docBtn: {
-    padding: "10px 16px", backgroundColor: "#3b82f6",
-    color: "white", border: "none", borderRadius: "8px",
-    fontSize: "14px", fontWeight: "600", cursor: "pointer",
-    transition: "all 0.2s"
+  drawerOverlay: {
+    position: "fixed",
+    inset: 0,
+    backgroundColor: "rgba(22,32,28,0.4)",
+    zIndex: 50,
   },
-  hideBtn: {
-    padding: "8px 16px", backgroundColor: "#f3f4f6",
-    border: "none", borderRadius: "8px", fontSize: "13px", 
-    cursor: "pointer", color: "#374151", fontWeight: "500"
+  sidebar: {
+    width: "236px",
+    flexShrink: 0,
+    display: "flex",
+    flexDirection: "column",
   },
-  title: { margin: 0, fontSize: "22px", color: "#111827", fontWeight: "700" },
-  subtitle: { margin: "5px 0 0 0", fontSize: "13px", color: "#6b7280" }
+  sidebarOpen: {
+    position: "fixed",
+    top: "66px",
+    left: 0,
+    bottom: 0,
+    width: "280px",
+    zIndex: 60,
+    padding: "12px",
+  },
+  thread: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    minWidth: 0,
+    overflow: "hidden",
+  },
 };

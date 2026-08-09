@@ -27,69 +27,23 @@ export async function uploadDocument(file) {
 export async function fetchDocuments() {
   const headers = await authHeader();
 
-  const res = await fetch(`${API_URL}/documents`, {
+  const res = await fetch(`${API_URL}/api/documents`, {
     headers,
   });
 
   if (!res.ok) throw new Error("Failed to fetch documents");
-  return res.json();
+  const data = await res.json();
+  return data.documents || [];
 }
 
-export async function deleteDocument(id) {
+export async function deleteDocument(filename) {
   const headers = await authHeader();
 
-  const res = await fetch(`${API_URL}/documents/${id}`, {
+  const res = await fetch(`${API_URL}/api/documents/${encodeURIComponent(filename)}`, {
     method: "DELETE",
     headers,
   });
 
   if (!res.ok) throw new Error("Delete failed");
   return res.json();
-}
-
-export async function sendChatMessage(message, sessionId = null) {
-  const headers = await authHeader();
-  
-  const res = await fetch(`${API_URL}/chat`, {
-    method: "POST",
-    headers: {
-      ...headers,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ 
-      question: message,
-      session_id: sessionId 
-    }),
-  });
-
-  if (!res.ok) throw new Error("Chat request failed");
-  return res.json();
-}
-
-export async function streamChat(message, onChunk) {
-  const headers = await authHeader();
-  
-  const res = await fetch(`${API_URL}/chat`, {
-    method: "POST",
-    headers: {
-      ...headers,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ message }),
-  });
-
-  if (!res.ok) throw new Error("Chat request failed");
-  if (!res.body) throw new Error("No response body");
-
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let done = false;
-
-  while (!done) {
-    const { value, done: doneReading } = await reader.read();
-    done = doneReading;
-    if (value) {
-      onChunk(decoder.decode(value));
-    }
-  }
 }

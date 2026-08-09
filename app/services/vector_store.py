@@ -1,11 +1,13 @@
 import faiss
 import pickle
+import numpy as np
 from pathlib import Path
 from typing import List, Dict
 
 
 class FAISSVectorStore:
     def __init__(self, dim: int, store_path: Path):
+        self.dim = dim
         self.index = faiss.IndexFlatL2(dim)
         self.store_path = store_path
         self.metadata: List[Dict] = []
@@ -15,13 +17,10 @@ class FAISSVectorStore:
         self.metadata.extend(metadatas)
 
     def search(self, query_vector, k: int = 5):
-        # Handle case where index is empty
         if self.index.ntotal == 0:
             return []
-        
-        # Adjust k if it's larger than available vectors
+
         k = min(k, self.index.ntotal)
-        
         distances, indices = self.index.search(query_vector, k)
         results = []
 
@@ -32,10 +31,33 @@ class FAISSVectorStore:
 
         return results
 
+    def delete_by_document_id(self, document_id: int):
+        """Remove all vectors belonging to document_id and rebuild the index."""
+        keep_indices = [
+            i for i, m in enumerate(self.metadata)
+            if m.get("document_id") != document_id
+        ]
+
+        if len(keep_indices) == self.index.ntotal:
+            return  # nothing matched, nothing to do
+
+        if not keep_indices:
+            self.index = faiss.IndexFlatL2(self.dim)
+            self.metadata = []
+            return
+
+        # Reconstruct index from kept vectors
+        kept_vectors = np.vstack([
+            self.index.reconstruct(i) for i in keep_indices
+        ]).astype("float32")
+
+        new_index = faiss.IndexFlatL2(self.dim)
+        new_index.add(kept_vectors)
+        self.index = new_index
+        self.metadata = [self.metadata[i] for i in keep_indices]
+
     def save(self):
-        # Create directory if it doesn't exist
         self.store_path.mkdir(parents=True, exist_ok=True)
-        
         faiss.write_index(self.index, str(self.store_path / "index.faiss"))
         with open(self.store_path / "metadata.pkl", "wb") as f:
             pickle.dump(self.metadata, f)
