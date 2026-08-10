@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, AlertTriangle } from "lucide-react";
+import { Check, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import { supabase, signIn, signUp, resetPassword, updatePassword } from "../api/auth";
 
 // ─── Disposable email domains ─────────────────────────────────────────────────
@@ -178,6 +178,8 @@ function ResetPasswordForm({ onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({ newPassword: null, confirmPassword: null });
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const touchField = (field, value) => {
     let err = null;
@@ -220,36 +222,46 @@ function ResetPasswordForm({ onSuccess }) {
         <form onSubmit={handleSubmit} style={{ ...s.form, marginTop: "28px" }} noValidate>
           <div style={s.field}>
             <label style={s.label} htmlFor="reset-pw">New password</label>
-            <input
-              id="reset-pw"
-              type="password"
-              placeholder="At least 8 characters"
-              value={newPassword}
-              onChange={e => { setNewPassword(e.target.value); setFieldErrors(p => ({ ...p, newPassword: null })); }}
-              onBlur={e => touchField("newPassword", e.target.value)}
-              required
-              maxLength={128}
-              autoComplete="new-password"
-              autoFocus
-              style={{ ...s.input, ...(fieldErrors.newPassword ? s.inputError : {}) }}
-            />
+            <div style={s.passwordWrap}>
+              <input
+                id="reset-pw"
+                type={showNew ? "text" : "password"}
+                placeholder="At least 8 characters"
+                value={newPassword}
+                onChange={e => { setNewPassword(e.target.value); setFieldErrors(p => ({ ...p, newPassword: null })); }}
+                onBlur={e => touchField("newPassword", e.target.value)}
+                required
+                maxLength={128}
+                autoComplete="new-password"
+                autoFocus
+                style={{ ...s.input, ...s.passwordInput, ...(fieldErrors.newPassword ? s.inputError : {}) }}
+              />
+              <button type="button" onClick={() => setShowNew(v => !v)} style={s.eyeBtn} tabIndex={-1} aria-label={showNew ? "Hide" : "Show"}>
+                {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
             <FieldError message={fieldErrors.newPassword} />
           </div>
 
           <div style={s.field}>
             <label style={s.label} htmlFor="reset-confirm">Confirm password</label>
-            <input
-              id="reset-confirm"
-              type="password"
-              placeholder="Same password again"
-              value={confirmPassword}
-              onChange={e => { setConfirmPassword(e.target.value); setFieldErrors(p => ({ ...p, confirmPassword: null })); }}
-              onBlur={e => touchField("confirmPassword", e.target.value)}
-              required
-              maxLength={128}
-              autoComplete="new-password"
-              style={{ ...s.input, ...(fieldErrors.confirmPassword ? s.inputError : {}) }}
-            />
+            <div style={s.passwordWrap}>
+              <input
+                id="reset-confirm"
+                type={showConfirm ? "text" : "password"}
+                placeholder="Same password again"
+                value={confirmPassword}
+                onChange={e => { setConfirmPassword(e.target.value); setFieldErrors(p => ({ ...p, confirmPassword: null })); }}
+                onBlur={e => touchField("confirmPassword", e.target.value)}
+                required
+                maxLength={128}
+                autoComplete="new-password"
+                style={{ ...s.input, ...s.passwordInput, ...(fieldErrors.confirmPassword ? s.inputError : {}) }}
+              />
+              <button type="button" onClick={() => setShowConfirm(v => !v)} style={s.eyeBtn} tabIndex={-1} aria-label={showConfirm ? "Hide" : "Show"}>
+                {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
             <FieldError message={fieldErrors.confirmPassword} />
           </div>
 
@@ -306,6 +318,7 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [showUniversityMsg, setShowUniversityMsg] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockoutSecs, setLockoutSecs] = useState(0);
   const [fieldErrors, setFieldErrors] = useState({ name: null, email: null, password: null });
@@ -534,19 +547,30 @@ export default function Auth() {
                   </button>
                 )}
               </div>
-              <input
-                id="auth-password"
-                type="password"
-                placeholder={isLogin ? "Your password" : "At least 8 characters"}
-                value={password}
-                onChange={e => { setPassword(e.target.value); clearFieldError("password"); }}
-                onBlur={e => touchField("password", e.target.value)}
-                required
-                maxLength={128}
-                autoComplete={isLogin ? "current-password" : "new-password"}
-                style={{ ...s.input, ...(fieldErrors.password ? s.inputError : {}) }}
-                disabled={isLocked || loading}
-              />
+              <div style={s.passwordWrap}>
+                <input
+                  id="auth-password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder={isLogin ? "Your password" : "At least 8 characters"}
+                  value={password}
+                  onChange={e => { setPassword(e.target.value); clearFieldError("password"); }}
+                  onBlur={e => touchField("password", e.target.value)}
+                  required
+                  maxLength={128}
+                  autoComplete={isLogin ? "current-password" : "new-password"}
+                  style={{ ...s.input, ...s.passwordInput, ...(fieldErrors.password ? s.inputError : {}) }}
+                  disabled={isLocked || loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  style={s.eyeBtn}
+                  tabIndex={-1}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
               <FieldError message={fieldErrors.password} />
               {!isLogin && password.length > 0 && <StrengthBar password={password} />}
             </div>
@@ -754,6 +778,26 @@ const s = {
     outline: "none",
     width: "100%",
     transition: "border-color 0.15s",
+  },
+  passwordWrap: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+  },
+  passwordInput: {
+    paddingRight: "44px",
+  },
+  eyeBtn: {
+    position: "absolute",
+    right: "13px",
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    color: "#9aa5a0",
+    padding: "2px",
+    display: "flex",
+    alignItems: "center",
+    flexShrink: 0,
   },
   inputError: {
     borderColor: "#d9544a",
