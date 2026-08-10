@@ -1,3 +1,5 @@
+import ReactMarkdown from "react-markdown";
+
 const CopyIcon = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5,15H4a2,2,0,0,1-2-2V4A2,2,0,0,1,4,2H15a2,2,0,0,1,2,2V5"/>
@@ -82,7 +84,13 @@ export default function ChatMessages({
                       ...s.bubble,
                       ...(msg.role === "user" ? s.userBubble : s.aiBubble),
                     }}>
-                      <p style={s.bubbleText}>{msg.content}</p>
+                      {msg.role === "user" ? (
+                        <p style={s.bubbleText}>{msg.content}</p>
+                      ) : (
+                        <div style={s.mdWrap}>
+                          <ReactMarkdown components={mdComponents}>{msg.content}</ReactMarkdown>
+                        </div>
+                      )}
                     </div>
 
                     {hoveredMessageId === idx && (
@@ -141,6 +149,34 @@ export default function ChatMessages({
     </div>
   );
 }
+
+const mdComponents = {
+  p:      ({ children }) => <p style={md.p}>{children}</p>,
+  strong: ({ children }) => <strong style={md.strong}>{children}</strong>,
+  em:     ({ children }) => <em style={md.em}>{children}</em>,
+  ul:     ({ children }) => <ul style={md.ul}>{children}</ul>,
+  ol:     ({ children }) => <ol style={md.ol}>{children}</ol>,
+  li:     ({ children }) => <li style={md.li}>{children}</li>,
+  h1:     ({ children }) => <h1 style={md.h1}>{children}</h1>,
+  h2:     ({ children }) => <h2 style={md.h2}>{children}</h2>,
+  h3:     ({ children }) => <h3 style={md.h3}>{children}</h3>,
+  code:   ({ children }) => <code style={md.code}>{children}</code>,
+  pre:    ({ children }) => <pre style={md.pre}>{children}</pre>,
+};
+
+const md = {
+  p:      { fontSize: "14px", lineHeight: "1.7", marginBottom: "8px", wordBreak: "break-word" },
+  strong: { fontWeight: "600" },
+  em:     { fontStyle: "italic" },
+  ul:     { paddingLeft: "20px", marginBottom: "8px", listStyleType: "disc" },
+  ol:     { paddingLeft: "20px", marginBottom: "8px" },
+  li:     { fontSize: "14px", lineHeight: "1.7", marginBottom: "3px" },
+  h1:     { fontSize: "17px", fontWeight: "700", margin: "12px 0 6px" },
+  h2:     { fontSize: "15px", fontWeight: "700", margin: "10px 0 5px" },
+  h3:     { fontSize: "14px", fontWeight: "600", margin: "8px 0 4px" },
+  code:   { fontFamily: "monospace", fontSize: "13px", backgroundColor: "var(--bg-hover)", padding: "1px 5px", borderRadius: "4px" },
+  pre:    { backgroundColor: "var(--bg-hover)", padding: "10px 14px", borderRadius: "6px", overflowX: "auto", marginBottom: "8px", fontSize: "13px", fontFamily: "monospace" },
+};
 
 const s = {
   area: {
@@ -241,6 +277,11 @@ const s = {
     fontSize: "14px",
     lineHeight: "1.65",
     whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+  },
+  mdWrap: {
+    fontSize: "14px",
+    lineHeight: "1.7",
     wordBreak: "break-word",
   },
   actions: {
