@@ -177,49 +177,71 @@ def load_chat_history(user_id: str, session_id: Optional[str] = None, limit: int
 
 # ============= LLM SERVICE =============
 
+DOCUMENT_SYSTEM_PROMPT = """You are a knowledge base assistant.
+Answer questions using the provided document context.
+If the answer is not clearly in the context, say so and offer related information you do find.
+Be conversational and reference previous messages when relevant."""
+
+GENERAL_SYSTEM_PROMPT = """You are KnowledgeForge AI, an intelligent assistant for students, entrepreneurs, and lifelong learners.
+
+You excel at:
+- Business ideas: break them down into market viability, first steps, potential challenges, and concrete next actions
+- Academic support: explaining concepts clearly, study strategies, exam preparation
+- Research and analysis: summarising, comparing, evaluating sources
+- Career and professional development advice
+- Creative brainstorming and problem solving
+
+When someone shares an idea, be practical and structured — give them something actionable, not vague encouragement.
+Use bullet points and clear formatting when it aids understanding.
+Maintain context from previous messages in the conversation.
+If asked about something harmful or illegal, politely decline."""
+
+
 class LLMService:
     """
     LLM service using Groq's Llama 3.3 70B model.
     Supports both regular and streaming responses with chat history.
     """
-    
+
     def __init__(self, temperature: float = 0.2):
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
             raise ValueError("GROQ_API_KEY environment variable not set")
-        
+
         self.client = Groq(api_key=api_key)
         self.model = "llama-3.3-70b-versatile"
         self.temperature = temperature
-        self.system_prompt = """You are a knowledge base assistant.
-Answer questions ONLY using the provided document context.
-If the answer is not in the context, say "I don't know based on the provided documents."
-Be conversational and reference previous messages when relevant."""
-        
+
         logger.info(f"LLMService initialized with model {self.model}")
-    
+
     def _build_messages(
-        self, 
-        question: str, 
-        context: str, 
+        self,
+        question: str,
+        context: str,
         chat_history: List[Dict] = None
     ) -> List[Dict]:
-        """Build messages array with system prompt, history, and current question"""
-        messages = [
-            {"role": "system", "content": self.system_prompt}
-        ]
-        
+        """Build messages for document-grounded answers."""
+        messages = [{"role": "system", "content": DOCUMENT_SYSTEM_PROMPT}]
+
         if chat_history:
             messages.extend(chat_history)
             logger.debug(f"Added {len(chat_history)} history messages")
-        
-        user_message = f"""Document Context:
-{context}
 
-Question: {question}"""
-        
-        messages.append({"role": "user", "content": user_message})
-        
+        messages.append({"role": "user", "content": f"Document Context:\n{context}\n\nQuestion: {question}"})
+        return messages
+
+    def _build_general_messages(
+        self,
+        question: str,
+        chat_history: List[Dict] = None
+    ) -> List[Dict]:
+        """Build messages for general AI answers (no document context)."""
+        messages = [{"role": "system", "content": GENERAL_SYSTEM_PROMPT}]
+
+        if chat_history:
+            messages.extend(chat_history)
+
+        messages.append({"role": "user", "content": question})
         return messages
 
     def generate_answer(
@@ -291,6 +313,60 @@ Question: {question}"""
             
         except Exception as e:
             logger.error(f"Streaming failed: {str(e)}", exc_info=True)
+            yield f"Error generating response: {str(e)}"
+
+    def generate_general_answer(
+        self,
+        question: str,
+        user_id: str,
+        session_id: Optional[str] = None,
+        temperature: Optional[float] = None
+    ) -> str:
+        """Generate a complete general-knowledge answer (no document context)."""
+        temp = temperature if temperature is not None else 0.5
+        try:
+            logger.info(f"Generating general answer for user {user_id}")
+            chat_history = load_chat_history(user_id, session_id, limit=5)
+            messages = self._build_general_messages(question, chat_history)
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=temp,
+                timeout=30
+            )
+            answer = response.choices[0].message.content.strip()
+            logger.info(f"General answer generated for user {user_id}")
+            return answer
+        except Exception as e:
+            logger.error(f"Failed to generate general answer: {str(e)}", exc_info=True)
+            raise Exception(f"Failed to generate general answer: {str(e)}")
+
+    def stream_general_answer(
+        self,
+        question: str,
+        user_id: str,
+        session_id: Optional[str] = None,
+        temperature: Optional[float] = None
+    ) -> Generator[str, None, None]:
+        """Stream a general-knowledge answer (no document context)."""
+        temp = temperature if temperature is not None else 0.5
+        try:
+            logger.info(f"Streaming general answer for user {user_id}")
+            chat_history = load_chat_history(user_id, session_id, limit=5)
+            messages = self._build_general_messages(question, chat_history)
+            stream = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=temp,
+                stream=True,
+                timeout=30
+            )
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
+            logger.info(f"General streaming completed for user {user_id}")
+        except Exception as e:
+            logger.error(f"General streaming failed: {str(e)}", exc_info=True)
             yield f"Error generating response: {str(e)}"
 
 

@@ -89,6 +89,9 @@ export default function ChatMessages({
                       ) : (
                         <div style={s.mdWrap}>
                           <ReactMarkdown components={mdComponents}>{msg.content}</ReactMarkdown>
+                          {msg.mode === "general" && (
+                            <span style={s.modeBadge}>General AI</span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -283,6 +286,18 @@ const s = {
     fontSize: "14px",
     lineHeight: "1.7",
     wordBreak: "break-word",
+  },
+  modeBadge: {
+    display: "inline-block",
+    marginTop: "8px",
+    fontSize: "11px",
+    fontWeight: "500",
+    color: "var(--text-3)",
+    backgroundColor: "var(--bg-subtle)",
+    border: "1px solid var(--border)",
+    borderRadius: "4px",
+    padding: "2px 7px",
+    letterSpacing: "0.2px",
   },
   actions: {
     display: "flex",

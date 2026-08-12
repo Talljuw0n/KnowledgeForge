@@ -73,9 +73,28 @@ async def chat_ws(
             results = retriever.retrieve(question)
             
             if not results:
+                await websocket.send_json({"type": "mode", "mode": "general"})
+                llm = LLMService()
+                full_answer = ""
+                for chunk in llm.stream_general_answer(
+                    question=question,
+                    user_id=user_id,
+                    session_id=session_id
+                ):
+                    full_answer += chunk
+                    await websocket.send_json({"type": "token", "content": chunk})
+                memory.add_turn(session_id, question, full_answer)
+                save_chat(
+                    user_id=user_id,
+                    question=question,
+                    answer=full_answer,
+                    sources=[],
+                    session_id=session_id
+                )
                 await websocket.send_json({
-                    "type": "error",
-                    "message": "No relevant information found. Please upload documents first."
+                    "type": "done",
+                    "session_id": session_id,
+                    "conversation_turns": len(memory.get_history(session_id))
                 })
                 continue
             

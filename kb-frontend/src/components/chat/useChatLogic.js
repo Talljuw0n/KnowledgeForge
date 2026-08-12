@@ -185,11 +185,6 @@ export function useChatLogic(API_URL, messagesEndRef, fileInputRef) {
       return;
     }
 
-    if (selectedDocs.length === 0) {
-      console.error("❌ No documents selected!");
-      alert("Please select at least one document!");
-      return;
-    }
 
     console.log("📝 Message text:", textToSend);
     console.log("📄 Selected document IDs:", selectedDocs);
@@ -283,7 +278,7 @@ export function useChatLogic(API_URL, messagesEndRef, fileInputRef) {
         setSessionId(data.session_id);
       }
 
-      const aiMessage = { role: "assistant", content: data.answer };
+      const aiMessage = { role: "assistant", content: data.answer, mode: data.mode || "documents" };
       setMessages([...newMessages, aiMessage]);
       console.log("✅ Message added to chat");
       

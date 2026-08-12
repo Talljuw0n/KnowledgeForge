@@ -57,9 +57,12 @@ async def chat(
         results = retriever.retrieve(payload.question, document_ids=payload.document_ids)
 
         if not results:
-            answer = "I couldn't find any relevant information. Please upload documents first."
-            
-            # Save to BOTH memory (fast) and database (persistent)
+            llm = LLMService()
+            answer = llm.generate_general_answer(
+                question=payload.question,
+                user_id=user_id,
+                session_id=session_id
+            )
             memory.add_turn(session_id, payload.question, answer)
             save_chat(
                 user_id=user_id,
@@ -68,11 +71,12 @@ async def chat(
                 sources=[],
                 session_id=session_id
             )
-            
             return {
                 "answer": answer,
                 "sources": [],
+                "mode": "general",
                 "session_id": session_id,
+                "conversation_turns": len(memory.get_history(session_id)),
                 "user_id": user_id
             }
 
@@ -122,6 +126,7 @@ async def chat(
         return {
             "answer": answer,
             "sources": list(set(sources)),
+            "mode": "documents",
             "session_id": session_id,
             "conversation_turns": len(memory.get_history(session_id)),
             "user_id": user_id
