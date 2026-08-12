@@ -312,6 +312,7 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [role, setRole] = useState("student");
   const [honeypot, setHoneypot] = useState("");
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -379,11 +380,12 @@ export default function Auth() {
         navigate("/home");
       } else {
         const cleanName = sanitizeName(displayName);
-        await signUp(email.trim(), password, cleanName);
+        await signUp(email.trim(), password, cleanName, role);
         setSuccess("Account created. Check your inbox to confirm your email, then sign in.");
         setIsLogin(true);
         setPassword("");
         setDisplayName("");
+        setRole("student");
         setFailedAttempts(0);
         setFieldErrors({ name: null, email: null, password: null });
       }
@@ -420,6 +422,7 @@ export default function Auth() {
     setError(null);
     setSuccess(null);
     setShowUniversityMsg(false);
+    setRole("student");
     setFieldErrors({ name: null, email: null, password: null });
   };
 
@@ -508,6 +511,31 @@ export default function Auth() {
                   disabled={isLocked || loading}
                 />
                 <FieldError message={fieldErrors.name} />
+              </div>
+            )}
+
+            {!isLogin && (
+              <div style={s.field}>
+                <label style={s.label}>I am a</label>
+                <div style={s.roleTrack}>
+                  {[
+                    { value: "student", label: "Student" },
+                    { value: "individual", label: "Individual" },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setRole(opt.value)}
+                      disabled={isLocked || loading}
+                      style={{
+                        ...s.roleBtn,
+                        ...(role === opt.value ? s.roleBtnActive : {}),
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -992,5 +1020,26 @@ const s = {
   chipText: {
     fontSize: "13px",
     color: "#3d4a45",
+  },
+  roleTrack: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "8px",
+  },
+  roleBtn: {
+    padding: "11px 14px",
+    fontSize: "14px",
+    fontWeight: "600",
+    color: "#5f6b66",
+    backgroundColor: "#ffffff",
+    border: "1.5px solid #d9dfdb",
+    borderRadius: "10px",
+    cursor: "pointer",
+    transition: "all 0.15s",
+  },
+  roleBtnActive: {
+    backgroundColor: "#dff2ec",
+    borderColor: "#12876a",
+    color: "#0b5c47",
   },
 };

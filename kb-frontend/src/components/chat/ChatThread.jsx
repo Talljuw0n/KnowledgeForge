@@ -1,4 +1,5 @@
 import { File, Copy } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 function UserAvatar({ userName }) {
   const initials = (userName || "?").split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
@@ -33,7 +34,23 @@ function MessageRow({ msg, idx, userName, onCopy }) {
       {/* Bubble + actions */}
       <div style={s.bubbleCol}>
         <div style={isUser ? s.userBubble : s.assistantBubble}>
-          {msg.content}
+          {isUser ? msg.content : (
+            <ReactMarkdown components={{
+              p: ({ children }) => <p style={{ margin: "0 0 10px" }}>{children}</p>,
+              ul: ({ children }) => <ul style={{ margin: "0 0 10px", paddingLeft: "20px" }}>{children}</ul>,
+              ol: ({ children }) => <ol style={{ margin: "0 0 10px", paddingLeft: "20px" }}>{children}</ol>,
+              li: ({ children }) => <li style={{ marginBottom: "4px" }}>{children}</li>,
+              strong: ({ children }) => <strong style={{ fontWeight: "700", color: "#16201c" }}>{children}</strong>,
+              code: ({ inline, children }) => inline
+                ? <code style={{ backgroundColor: "#eef1ef", borderRadius: "4px", padding: "2px 5px", fontSize: "13.5px", fontFamily: "monospace" }}>{children}</code>
+                : <pre style={{ backgroundColor: "#eef1ef", borderRadius: "8px", padding: "12px 14px", overflowX: "auto", fontSize: "13.5px", fontFamily: "monospace", margin: "0 0 10px" }}><code>{children}</code></pre>,
+              h1: ({ children }) => <h1 style={{ fontSize: "18px", fontWeight: "700", margin: "0 0 8px" }}>{children}</h1>,
+              h2: ({ children }) => <h2 style={{ fontSize: "16px", fontWeight: "700", margin: "0 0 8px" }}>{children}</h2>,
+              h3: ({ children }) => <h3 style={{ fontSize: "15px", fontWeight: "700", margin: "0 0 6px" }}>{children}</h3>,
+            }}>
+              {msg.content}
+            </ReactMarkdown>
+          )}
         </div>
         {/* Text actions */}
         <div style={s.actions}>
@@ -302,7 +319,6 @@ const s = {
     fontSize: "15.5px",
     lineHeight: "1.68",
     color: "#16201c",
-    whiteSpace: "pre-wrap",
   },
   typingBubble: {
     backgroundColor: "#f7faf8",

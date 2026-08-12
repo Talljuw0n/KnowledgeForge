@@ -20,13 +20,14 @@ export async function signIn(email, password) {
 }
 
 
-export async function signUp(email, password, displayName) {
+export async function signUp(email, password, displayName, role = "student") {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
-        display_name: displayName, // Saves to user metadata
+        display_name: displayName,
+        role,
       }
     }
   });
