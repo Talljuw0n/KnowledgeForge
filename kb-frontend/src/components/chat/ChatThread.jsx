@@ -56,7 +56,7 @@ export default function ChatThread({
   onCopyMessage, onOpenDocManager,
 }) {
   const hasMessages = messages.length > 0;
-  const canSend = !loading && selectedDocs.length > 0 && input.trim();
+  const canSend = !loading && input.trim();
 
   const headerTitle = hasMessages
     ? (messages[0]?.content?.slice(0, 60) + (messages[0]?.content?.length > 60 ? "…" : ""))
@@ -97,7 +97,7 @@ export default function ChatThread({
             <p style={s.emptySub}>
               {selectedDocs.length > 0
                 ? "Ask a question about your selected documents."
-                : "Select documents below and ask a question."}
+                : "Ask anything — or select documents to get answers from them."}
             </p>
           </div>
         )}
@@ -139,25 +139,15 @@ export default function ChatThread({
 
       {/* Composer */}
       <div style={s.composer}>
-        {selectedDocs.length === 0 && (
-          <p style={s.noDocWarn}>Select at least one document to start chatting.</p>
-        )}
         <form onSubmit={onSend} style={s.composerRow}>
           <input
             type="text"
             value={input}
             onChange={e => onInputChange(e.target.value)}
             onKeyDown={handleKey}
-            placeholder={
-              selectedDocs.length > 0
-                ? "Ask a question about your documents…"
-                : "Select documents first…"
-            }
-            disabled={loading || selectedDocs.length === 0}
-            style={{
-              ...s.composerInput,
-              ...(loading || selectedDocs.length === 0 ? { color: "#9aa5a0" } : {}),
-            }}
+            placeholder="Ask a question, share an idea, or anything…"
+            disabled={loading}
+            style={s.composerInput}
           />
           <button
             type="submit"

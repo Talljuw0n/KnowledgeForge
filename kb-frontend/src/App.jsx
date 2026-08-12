@@ -5,6 +5,7 @@ import Library from "./pages/Library";
 import Chat from "./pages/Chat";
 import Document from "./pages/Document";
 import Upload from "./pages/Upload";
+import Study from "./pages/Study";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
         <Route path="/document/:id" element={<ProtectedRoute><Document /></ProtectedRoute>} />
         <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
+        <Route path="/study" element={<ProtectedRoute><Study /></ProtectedRoute>} />
         {/* Legacy redirect */}
         <Route path="/documents" element={<Navigate to="/library" replace />} />
       </Routes>

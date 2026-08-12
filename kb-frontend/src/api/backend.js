@@ -36,6 +36,66 @@ export async function fetchDocuments() {
   return data.documents || [];
 }
 
+export async function generateQuiz(documentIds, numQuestions = 10, questionType = "mixed") {
+  const headers = { ...(await authHeader()), "Content-Type": "application/json" };
+  const res = await fetch(`${API_URL}/api/study/quiz`, {
+    method: "POST", headers,
+    body: JSON.stringify({ document_ids: documentIds, num_questions: numQuestions, question_type: questionType }),
+  });
+  if (!res.ok) throw new Error((await res.json()).detail || "Failed to generate quiz");
+  return res.json();
+}
+
+export async function generateFlashcards(documentIds, numCards = 15) {
+  const headers = { ...(await authHeader()), "Content-Type": "application/json" };
+  const res = await fetch(`${API_URL}/api/study/flashcards`, {
+    method: "POST", headers,
+    body: JSON.stringify({ document_ids: documentIds, num_cards: numCards }),
+  });
+  if (!res.ok) throw new Error((await res.json()).detail || "Failed to generate flashcards");
+  return res.json();
+}
+
+export async function extractConcepts(documentIds) {
+  const headers = { ...(await authHeader()), "Content-Type": "application/json" };
+  const res = await fetch(`${API_URL}/api/study/concepts`, {
+    method: "POST", headers,
+    body: JSON.stringify({ document_ids: documentIds }),
+  });
+  if (!res.ok) throw new Error((await res.json()).detail || "Failed to extract concepts");
+  return res.json();
+}
+
+export async function generateStudyPlan(documentIds, examDate, hoursPerDay = 2) {
+  const headers = { ...(await authHeader()), "Content-Type": "application/json" };
+  const res = await fetch(`${API_URL}/api/study/plan`, {
+    method: "POST", headers,
+    body: JSON.stringify({ document_ids: documentIds, exam_date: examDate, hours_per_day: hoursPerDay }),
+  });
+  if (!res.ok) throw new Error((await res.json()).detail || "Failed to generate study plan");
+  return res.json();
+}
+
+export async function getRecallQuestion(documentIds, previousQuestions = []) {
+  const headers = { ...(await authHeader()), "Content-Type": "application/json" };
+  const res = await fetch(`${API_URL}/api/study/recall/question`, {
+    method: "POST", headers,
+    body: JSON.stringify({ document_ids: documentIds, previous_questions: previousQuestions }),
+  });
+  if (!res.ok) throw new Error((await res.json()).detail || "Failed to get question");
+  return res.json();
+}
+
+export async function evaluateRecallAnswer(question, studentAnswer, modelAnswer) {
+  const headers = { ...(await authHeader()), "Content-Type": "application/json" };
+  const res = await fetch(`${API_URL}/api/study/recall/evaluate`, {
+    method: "POST", headers,
+    body: JSON.stringify({ question, student_answer: studentAnswer, model_answer: modelAnswer }),
+  });
+  if (!res.ok) throw new Error((await res.json()).detail || "Failed to evaluate answer");
+  return res.json();
+}
+
 export async function deleteDocument(filename) {
   const headers = await authHeader();
 

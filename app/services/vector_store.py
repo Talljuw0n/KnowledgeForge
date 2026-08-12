@@ -56,6 +56,13 @@ class FAISSVectorStore:
         self.index = new_index
         self.metadata = [self.metadata[i] for i in keep_indices]
 
+    def get_by_document_ids(self, document_ids: List[int]) -> List[Dict]:
+        """Return all chunks for the given document IDs, ordered by page."""
+        id_set = set(document_ids)
+        results = [m for m in self.metadata if m.get("document_id") in id_set]
+        results.sort(key=lambda x: (x.get("document_id", 0), x.get("page", 0)))
+        return results
+
     def save(self):
         self.store_path.mkdir(parents=True, exist_ok=True)
         faiss.write_index(self.index, str(self.store_path / "index.faiss"))

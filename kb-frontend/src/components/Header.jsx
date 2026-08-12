@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Book, Plus, Search, Home, Library, MessageCircle } from "lucide-react";
+import { Book, Plus, Search, Home, Library, MessageCircle, GraduationCap } from "lucide-react";
 import { supabase, signOut } from "../api/auth";
 
 function BrandMark() {
@@ -26,7 +26,8 @@ export default function Header({ userName = "", userEmail = "" }) {
   const activeNav =
     path === "/home" ? "home" :
     path === "/library" || path.startsWith("/document") ? "library" :
-    path === "/chat" ? "chats" : "";
+    path === "/chat" ? "chats" :
+    path === "/study" ? "study" : "";
 
   const initials = userName
     ? userName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
@@ -36,6 +37,7 @@ export default function Header({ userName = "", userEmail = "" }) {
     { key: "home", label: "Home", icon: <Home size={15} />, to: "/home" },
     { key: "library", label: "Library", icon: <Library size={15} />, to: "/library" },
     { key: "chats", label: "Chats", icon: <MessageCircle size={15} />, to: "/chat" },
+    { key: "study", label: "Study", icon: <GraduationCap size={15} />, to: "/study" },
   ];
 
   useEffect(() => {
