@@ -41,7 +41,7 @@ export default function ChatMessages({
         <div style={s.empty}>
           <div style={s.emptyIcon}><SparkleIcon /></div>
           <h2 style={s.emptyTitle}>How can I help you today?</h2>
-          <p style={s.emptyHint}>Select documents and ask any question about them.</p>
+          <p style={s.emptyHint}>Ask anything — upload documents to get answers from them, or just type a question, idea, or topic to get started.</p>
         </div>
       ) : (
         <div style={s.list}>

@@ -14,7 +14,7 @@ export default function ChatInput({
   input, loading, selectedDocs, uploadingFile, fileInputRef,
   onInputChange, onSendMessage, onFileUpload
 }) {
-  const disabled = loading || selectedDocs.length === 0;
+  const disabled = loading;
   const canSend = !disabled && input.trim();
 
   const handleKeyDown = (e) => {
@@ -27,11 +27,6 @@ export default function ChatInput({
   return (
     <div style={s.wrap}>
       <div style={s.inner}>
-        {/* No-doc warning */}
-        {selectedDocs.length === 0 && (
-          <p style={s.warning}>Select at least one document to start chatting.</p>
-        )}
-
         <form onSubmit={onSendMessage} style={s.bar}>
           {/* Upload */}
           <input
@@ -60,11 +55,7 @@ export default function ChatInput({
             value={input}
             onChange={e => onInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={
-              selectedDocs.length > 0
-                ? "Ask a question about your documents…"
-                : "Select documents first…"
-            }
+            placeholder="Ask a question, share a business idea, or anything…"
             disabled={disabled}
             style={{
               ...s.input,
