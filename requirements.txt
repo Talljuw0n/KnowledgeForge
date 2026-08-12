@@ -10,3 +10,4 @@ Pillow
 pytesseract
 supabase
 groq
+aiofiles

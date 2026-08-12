@@ -1,6 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, BackgroundTasks
 from pathlib import Path
 from typing import Dict
+import aiofiles
 
 from app.services.document_loader import DocumentLoader
 from app.services.indexer import Indexer
@@ -58,19 +59,26 @@ async def upload_document(
     if ext not in DocumentLoader.SUPPORTED_EXTENSIONS:
         raise HTTPException(status_code=400, detail="Unsupported file type.")
 
-    contents = await file.read()
-    size_mb = len(contents) / (1024 * 1024)
-    if size_mb > MAX_FILE_MB:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File is {size_mb:.1f} MB — maximum is {MAX_FILE_MB} MB."
-        )
-
-    # Save file to disk
     user_upload_dir = UPLOAD_DIR / user_id
     user_upload_dir.mkdir(parents=True, exist_ok=True)
     file_path = user_upload_dir / file.filename
-    file_path.write_bytes(contents)
+
+    # Stream bytes to disk as they arrive — avoids buffering the whole file in memory
+    size_bytes = 0
+    max_bytes = MAX_FILE_MB * 1024 * 1024
+    async with aiofiles.open(file_path, "wb") as out:
+        while chunk := await file.read(64 * 1024):  # 64 KB chunks
+            size_bytes += len(chunk)
+            if size_bytes > max_bytes:
+                await out.close()
+                file_path.unlink(missing_ok=True)
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File exceeds the {MAX_FILE_MB} MB limit."
+                )
+            await out.write(chunk)
+
+    size_mb = size_bytes / (1024 * 1024)
 
     # Create DB record immediately so the document appears in the library
     doc_record = save_document(user_id=user_id, filename=file.filename)
