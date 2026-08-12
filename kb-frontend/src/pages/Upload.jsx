@@ -2,10 +2,10 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { UploadCloud, File } from "lucide-react";
 import { supabase } from "../api/auth";
-import { uploadDocument } from "../api/backend";
+import { uploadDocument, pollDocumentStatus } from "../api/backend";
 import Header from "../components/Header";
 
-const STAGES = ["Waiting", "Uploading…", "Ready to search"];
+const STAGES = ["Waiting", "Uploading…", "Processing…", "Ready to search"];
 
 function stagePct(stage) {
   const idx = STAGES.indexOf(stage);
@@ -82,7 +82,15 @@ export default function Upload() {
 
       try {
         update({ stage: "Uploading…" });
-        await uploadDocument(item.file);
+        const result = await uploadDocument(item.file);
+
+        if (result.status === "processing" && result.document?.id) {
+          update({ stage: "Processing…" });
+          await pollDocumentStatus(result.document.id, (status) => {
+            if (status === "processing") update({ stage: "Processing…" });
+          });
+        }
+
         update({ stage: "Ready to search" });
       } catch (err) {
         update({ error: err.message || "Upload failed" });
@@ -95,13 +103,13 @@ export default function Upload() {
     for (const f of Array.from(files)) {
       const ext = f.name.split(".").pop().toLowerCase();
       if (!["pdf", "txt", "doc", "docx"].includes(ext)) continue;
-      if (f.size > 40 * 1024 * 1024) {
+      if (f.size > 100 * 1024 * 1024) {
         setQueue(q => [...q, {
           id: `${f.name}-${f.lastModified}`,
           name: f.name,
           size: f.size,
           stage: "Waiting",
-          error: `File is ${(f.size / 1024 / 1024).toFixed(1)} MB — maximum is 40 MB.`,
+          error: `File is ${(f.size / 1024 / 1024).toFixed(1)} MB — maximum is 100 MB.`,
           file: f,
         }]);
         continue;
@@ -118,7 +126,7 @@ export default function Upload() {
   };
 
   const allDone = queue.length > 0 && queue.every(x => x.stage === "Ready to search" || x.error);
-  const inProgress = queue.some(x => x.stage !== "Ready to search" && !x.error && x.stage !== "Waiting");
+  const inProgress = queue.some(x => x.stage === "Uploading…" || x.stage === "Processing…");
 
   return (
     <>
@@ -138,7 +146,7 @@ export default function Upload() {
             <UploadCloud size={22} color="#0b5c47" strokeWidth={2} />
           </div>
           <h2 style={s.dropzoneTitle}>Drag your files here</h2>
-          <p style={s.dropzoneBody}>PDF, DOCX or TXT · up to 40 MB each</p>
+          <p style={s.dropzoneBody}>PDF, DOCX or TXT · up to 100 MB each</p>
           <p style={s.dropzoneNote}>Large files can take 1–2 minutes to process.</p>
           <input
             ref={fileInputRef}

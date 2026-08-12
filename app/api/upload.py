@@ -1,130 +1,141 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, BackgroundTasks
 from pathlib import Path
-import shutil
+from typing import Dict
 
 from app.services.document_loader import DocumentLoader
 from app.services.indexer import Indexer
 from app.services.database import save_document
 from app.services.llm import get_current_user
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 UPLOAD_DIR = Path("data/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+MAX_FILE_MB = 100
+
+# In-memory processing status: "{user_id}:{document_id}" -> "processing"|"ready"|"failed:<msg>"
+_status: Dict[str, str] = {}
+
+
+def _process_in_background(file_path: Path, user_id: str, document_id: int, status_key: str):
+    try:
+        document = DocumentLoader.load(file_path)
+
+        if len(document["pages"]) == 0:
+            _status[status_key] = "failed:No text could be extracted from this file."
+            return
+
+        indexer = Indexer(user_id=user_id)
+        num_chunks = indexer.index_document(document, document_id)
+
+        if num_chunks == 0:
+            _status[status_key] = "failed:No text chunks could be created."
+            return
+
+        _status[status_key] = "ready"
+        logger.info(f"Background processing done: {document_id} ({num_chunks} chunks)")
+
+    except Exception as e:
+        logger.error(f"Background processing failed for doc {document_id}: {e}", exc_info=True)
+        _status[status_key] = f"failed:{str(e)}"
+    finally:
+        if file_path.exists():
+            file_path.unlink()
+
 
 @router.post("/upload")
 async def upload_document(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    user = Depends(get_current_user)
+    user=Depends(get_current_user),
 ):
-    """Upload and process a document for the authenticated user"""
     user_id = user.id
-    
     ext = Path(file.filename).suffix.lower()
 
     if ext not in DocumentLoader.SUPPORTED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="Unsupported file type")
+        raise HTTPException(status_code=400, detail="Unsupported file type.")
 
     contents = await file.read()
     size_mb = len(contents) / (1024 * 1024)
-    if size_mb > 40:
-        raise HTTPException(status_code=413, detail=f"File too large ({size_mb:.1f} MB). Maximum is 40 MB.")
-    await file.seek(0)
+    if size_mb > MAX_FILE_MB:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File is {size_mb:.1f} MB — maximum is {MAX_FILE_MB} MB."
+        )
 
-    # Save to user-specific directory
+    # Save file to disk
     user_upload_dir = UPLOAD_DIR / user_id
     user_upload_dir.mkdir(parents=True, exist_ok=True)
     file_path = user_upload_dir / file.filename
+    file_path.write_bytes(contents)
 
-    with file_path.open("wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    # Create DB record immediately so the document appears in the library
+    doc_record = save_document(user_id=user_id, filename=file.filename)
+    document_id = doc_record["id"]
 
-    try:
-        # Load document
-        document = DocumentLoader.load(file_path)
-        
-        print(f"User: {user_id}")
-        print(f"Document filename: {document['filename']}")
-        print(f"Number of pages: {len(document['pages'])}")
-        
-        if len(document['pages']) == 0:
-            raise HTTPException(status_code=400, detail="No text could be extracted from the document")
-        
-        # Save document metadata to database FIRST to get document_id
-        doc_record = save_document(user_id=user_id, filename=file.filename)
-        document_id = doc_record["id"]  # Get the document ID
-        
-        # Index document into user-specific vectorstore WITH document_id
-        indexer = Indexer(user_id=user_id)
-        num_chunks = indexer.index_document(document, document_id)  # Pass document_id
-        
-        print(f"Number of chunks created: {num_chunks}")
-        
-        if num_chunks == 0:
-            raise HTTPException(status_code=400, detail="No text chunks could be created from the document")
-        
-        print(f"Document indexed successfully for user {user_id} with document_id {document_id}")
-        
-        # Clean up temp file
-        file_path.unlink()
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"Error occurred: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+    # Track status and kick off background processing
+    status_key = f"{user_id}:{document_id}"
+    _status[status_key] = "processing"
+    background_tasks.add_task(_process_in_background, file_path, user_id, document_id, status_key)
+
+    logger.info(f"Upload accepted for user {user_id}, doc {document_id} ({size_mb:.1f} MB) — processing in background")
 
     return {
-        "message": "File uploaded and processed successfully",
-        "user_id": user_id,
+        "message": "Upload received. Processing in background.",
+        "status": "processing",
         "document": {
-            "id": document_id,  # Include document_id in response
-            "filename": document["filename"],
-            "pages": len(document["pages"]),
-            "chunks": num_chunks
+            "id": document_id,
+            "filename": file.filename,
+            "size_mb": round(size_mb, 2),
         }
     }
 
 
+@router.get("/documents/{document_id}/status")
+async def get_document_status(document_id: int, user=Depends(get_current_user)):
+    status_key = f"{user.id}:{document_id}"
+    raw = _status.get(status_key)
+
+    if raw is None:
+        # Machine may have restarted — check the vector store directly
+        from app.services.vector_store import FAISSVectorStore
+        store_path = Path(f"data/vector_store/{user.id}")
+        if store_path.exists():
+            store = FAISSVectorStore(dim=384, store_path=store_path)
+            store.load()
+            if store.get_by_document_ids([document_id]):
+                return {"status": "ready", "document_id": document_id}
+        return {"status": "processing", "document_id": document_id}
+
+    if raw.startswith("failed:"):
+        return {"status": "failed", "error": raw[7:], "document_id": document_id}
+
+    return {"status": raw, "document_id": document_id}
+
+
 @router.get("/documents")
-async def list_documents(user = Depends(get_current_user)):
-    """Get all documents for the authenticated user"""
+async def list_documents(user=Depends(get_current_user)):
     from app.services.database import get_user_documents
-    
-    user_id = user.id
-    documents = get_user_documents(user_id)
-    
-    return {
-        "user_id": user_id,
-        "documents": documents
-    }
+    documents = get_user_documents(user.id)
+    return {"user_id": user.id, "documents": documents}
 
 
 @router.delete("/documents/{filename}")
-async def delete_document(
-    filename: str,
-    user = Depends(get_current_user)
-):
-    """Delete a document and its vectors for the authenticated user"""
+async def delete_document(filename: str, user=Depends(get_current_user)):
     from app.services.database import delete_document, get_user_documents
     from app.services.vector_store import FAISSVectorStore
-    from pathlib import Path
 
     user_id = user.id
-
-    # Look up the document_id before deleting
     docs = get_user_documents(user_id)
     doc = next((d for d in docs if d["filename"] == filename), None)
-
     if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
 
     document_id = doc["id"]
 
-    # Remove vectors from FAISS index
     store_path = Path(f"data/vector_store/{user_id}")
     if store_path.exists():
         vector_store = FAISSVectorStore(dim=384, store_path=store_path)
@@ -132,10 +143,6 @@ async def delete_document(
         vector_store.delete_by_document_id(document_id)
         vector_store.save()
 
-    # Remove metadata from database
     delete_document(user_id=user_id, filename=filename)
 
-    return {
-        "message": f"Document {filename} deleted",
-        "user_id": user_id
-    }
+    return {"message": f"Document {filename} deleted", "user_id": user_id}
