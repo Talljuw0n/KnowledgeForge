@@ -26,6 +26,12 @@ async def upload_document(
     if ext not in DocumentLoader.SUPPORTED_EXTENSIONS:
         raise HTTPException(status_code=400, detail="Unsupported file type")
 
+    contents = await file.read()
+    size_mb = len(contents) / (1024 * 1024)
+    if size_mb > 40:
+        raise HTTPException(status_code=413, detail=f"File too large ({size_mb:.1f} MB). Maximum is 40 MB.")
+    await file.seek(0)
+
     # Save to user-specific directory
     user_upload_dir = UPLOAD_DIR / user_id
     user_upload_dir.mkdir(parents=True, exist_ok=True)

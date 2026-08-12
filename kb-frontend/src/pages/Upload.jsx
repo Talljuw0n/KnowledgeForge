@@ -5,7 +5,7 @@ import { supabase } from "../api/auth";
 import { uploadDocument } from "../api/backend";
 import Header from "../components/Header";
 
-const STAGES = ["Waiting", "Extracting text", "Reading the pages", "Ready to search"];
+const STAGES = ["Waiting", "Uploading…", "Ready to search"];
 
 function stagePct(stage) {
   const idx = STAGES.indexOf(stage);
@@ -81,9 +81,7 @@ export default function Upload() {
         setQueue(q => q.map(x => x.id === item.id ? { ...x, ...patch } : x));
 
       try {
-        update({ stage: "Extracting text" });
-        await new Promise(r => setTimeout(r, 300));
-        update({ stage: "Reading the pages" });
+        update({ stage: "Uploading…" });
         await uploadDocument(item.file);
         update({ stage: "Ready to search" });
       } catch (err) {
@@ -93,10 +91,23 @@ export default function Upload() {
   };
 
   const handleFiles = (files) => {
-    const accepted = Array.from(files).filter(f => {
+    const accepted = [];
+    for (const f of Array.from(files)) {
       const ext = f.name.split(".").pop().toLowerCase();
-      return ["pdf", "txt", "doc", "docx"].includes(ext);
-    });
+      if (!["pdf", "txt", "doc", "docx"].includes(ext)) continue;
+      if (f.size > 40 * 1024 * 1024) {
+        setQueue(q => [...q, {
+          id: `${f.name}-${f.lastModified}`,
+          name: f.name,
+          size: f.size,
+          stage: "Waiting",
+          error: `File is ${(f.size / 1024 / 1024).toFixed(1)} MB — maximum is 40 MB.`,
+          file: f,
+        }]);
+        continue;
+      }
+      accepted.push(f);
+    }
     if (accepted.length) processFiles(accepted);
   };
 
@@ -128,6 +139,7 @@ export default function Upload() {
           </div>
           <h2 style={s.dropzoneTitle}>Drag your files here</h2>
           <p style={s.dropzoneBody}>PDF, DOCX or TXT · up to 40 MB each</p>
+          <p style={s.dropzoneNote}>Large files can take 1–2 minutes to process.</p>
           <input
             ref={fileInputRef}
             type="file"
@@ -230,6 +242,11 @@ const s = {
   dropzoneBody: {
     fontSize: "14px",
     color: "#7b8681",
+  },
+  dropzoneNote: {
+    fontSize: "12px",
+    color: "#9aa5a0",
+    marginTop: "2px",
   },
   browseBtn: {
     marginTop: "6px",

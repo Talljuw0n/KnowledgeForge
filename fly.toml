@@ -17,6 +17,11 @@ primary_region = 'ams'
   min_machines_running = 0
   processes = ['app']
 
+[http_service.concurrency]
+  type = "requests"
+  hard_limit = 10
+  soft_limit = 5
+
 [[mounts]]
   source = "knowledgeforge_data"
   destination = "/app/data"
