@@ -25,4 +25,4 @@ class EmbeddingService:
         return EmbeddingService._model
 
     def embed_texts(self, texts: List[str]):
-        return self.model.encode(texts, show_progress_bar=False)
+        return self.model.encode(texts, show_progress_bar=False, batch_size=64)
