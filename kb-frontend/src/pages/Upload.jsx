@@ -31,7 +31,9 @@ function FileRow({ item }) {
       </div>
       <div style={s.fileMeta}>
         <span style={{ color: failed ? "#a3342a" : "#5f6b66" }}>
-          {failed ? item.error : item.stage}
+          {failed ? item.error : item.slow
+            ? "Still processing this large file — you can navigate away and check back in your library."
+            : item.stage}
         </span>
         <span>{(item.size / 1024 / 1024).toFixed(2)} MB</span>
       </div>
@@ -71,6 +73,7 @@ export default function Upload() {
       size: f.size,
       stage: "Waiting",
       error: null,
+      slow: false,
       file: f,
     }));
 
@@ -86,9 +89,16 @@ export default function Upload() {
 
         if (result.status === "processing" && result.document?.id) {
           update({ stage: "Processing…" });
-          await pollDocumentStatus(result.document.id, (status) => {
-            if (status === "processing") update({ stage: "Processing…" });
-          });
+          const slowTimer = setTimeout(() => {
+            update({ slow: true });
+          }, 5 * 60 * 1000); // 5 minutes
+          try {
+            await pollDocumentStatus(result.document.id, (status) => {
+              if (status === "processing") update({ stage: "Processing…" });
+            });
+          } finally {
+            clearTimeout(slowTimer);
+          }
         }
 
         update({ stage: "Ready to search" });

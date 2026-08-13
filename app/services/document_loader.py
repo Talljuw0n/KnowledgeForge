@@ -23,32 +23,30 @@ class DocumentLoader:
         else:
             raise ValueError("Unsupported file type")
 
+    MAX_OCR_PAGES = 150  # cap OCR to avoid runaway processing on large scanned PDFs
+
     @staticmethod
     def _load_pdf(file_path: Path) -> dict:
         doc = fitz.open(file_path)
         pages = []
+        ocr_count = 0
 
         for i, page in enumerate(doc):
-            # Try to extract text first
             text = page.get_text()
-            
-            # If no text found, try OCR
-            if not text.strip():
+
+            if not text.strip() and ocr_count < DocumentLoader.MAX_OCR_PAGES:
                 try:
-                    # Convert page to image
-                    pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x zoom for better quality
+                    # 1.5x zoom — good enough for tesseract, 44% fewer pixels than 2x
+                    pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5))
                     img = Image.open(io.BytesIO(pix.tobytes("png")))
-                    
-                    # Perform OCR
-                    text = pytesseract.image_to_string(img)
+                    # --oem 1 = LSTM only (faster); --psm 6 = uniform text block
+                    text = pytesseract.image_to_string(img, config="--oem 1 --psm 6")
+                    ocr_count += 1
                 except Exception as e:
                     print(f"OCR failed for page {i+1}: {e}")
                     text = ""
-            
-            pages.append({
-                "page": i + 1,
-                "text": text
-            })
+
+            pages.append({"page": i + 1, "text": text})
 
         return {
             "filename": file_path.name,

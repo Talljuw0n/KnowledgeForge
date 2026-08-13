@@ -29,23 +29,19 @@ export async function uploadDocument(file) {
 
 export async function pollDocumentStatus(documentId, onStatus) {
   const headers = await authHeader();
-  const maxWait = 10 * 60 * 1000; // 10 minutes max
   const interval = 3000;
-  const start = Date.now();
 
   return new Promise((resolve, reject) => {
     const check = async () => {
-      if (Date.now() - start > maxWait) {
-        return reject(new Error("Processing timed out. Please try again."));
-      }
       try {
         const res = await fetch(`${API_URL}/api/documents/${documentId}/status`, { headers });
         const data = await res.json();
-        onStatus(data.status);
+        onStatus(data.status, data.elapsed_seconds);
         if (data.status === "ready") return resolve(data);
         if (data.status === "failed") return reject(new Error(data.error || "Processing failed"));
         setTimeout(check, interval);
       } catch (e) {
+        // network blip — keep polling
         setTimeout(check, interval);
       }
     };
