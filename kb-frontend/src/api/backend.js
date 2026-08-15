@@ -9,6 +9,18 @@ async function authHeader() {
   };
 }
 
+async function extractError(res, fallback) {
+  try {
+    const data = await res.json();
+    const d = data.detail;
+    if (!d) return fallback;
+    if (Array.isArray(d)) return d.map(e => e.msg || JSON.stringify(e)).join("; ");
+    return String(d);
+  } catch {
+    return fallback;
+  }
+}
+
 export async function uploadDocument(file) {
   const headers = await authHeader();
   const formData = new FormData();
@@ -20,10 +32,7 @@ export async function uploadDocument(file) {
     body: formData,
   });
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Upload failed");
-  }
+  if (!res.ok) throw new Error(await extractError(res, "Upload failed"));
   return res.json();
 }
 
@@ -67,7 +76,7 @@ export async function generateQuiz(documentIds, numQuestions = 10, questionType 
     method: "POST", headers,
     body: JSON.stringify({ document_ids: documentIds, num_questions: numQuestions, question_type: questionType }),
   });
-  if (!res.ok) throw new Error((await res.json()).detail || "Failed to generate quiz");
+  if (!res.ok) throw new Error(await extractError(res, "Failed to generate quiz"));
   return res.json();
 }
 
@@ -77,7 +86,7 @@ export async function generateFlashcards(documentIds, numCards = 15) {
     method: "POST", headers,
     body: JSON.stringify({ document_ids: documentIds, num_cards: numCards }),
   });
-  if (!res.ok) throw new Error((await res.json()).detail || "Failed to generate flashcards");
+  if (!res.ok) throw new Error(await extractError(res, "Failed to generate flashcards"));
   return res.json();
 }
 
@@ -87,7 +96,7 @@ export async function extractConcepts(documentIds) {
     method: "POST", headers,
     body: JSON.stringify({ document_ids: documentIds }),
   });
-  if (!res.ok) throw new Error((await res.json()).detail || "Failed to extract concepts");
+  if (!res.ok) throw new Error(await extractError(res, "Failed to extract concepts"));
   return res.json();
 }
 
@@ -97,7 +106,7 @@ export async function generateStudyPlan(documentIds, examDate, hoursPerDay = 2) 
     method: "POST", headers,
     body: JSON.stringify({ document_ids: documentIds, exam_date: examDate, hours_per_day: hoursPerDay }),
   });
-  if (!res.ok) throw new Error((await res.json()).detail || "Failed to generate study plan");
+  if (!res.ok) throw new Error(await extractError(res, "Failed to generate study plan"));
   return res.json();
 }
 
@@ -107,7 +116,7 @@ export async function getRecallQuestion(documentIds, previousQuestions = []) {
     method: "POST", headers,
     body: JSON.stringify({ document_ids: documentIds, previous_questions: previousQuestions }),
   });
-  if (!res.ok) throw new Error((await res.json()).detail || "Failed to get question");
+  if (!res.ok) throw new Error(await extractError(res, "Failed to get question"));
   return res.json();
 }
 
@@ -117,7 +126,7 @@ export async function evaluateRecallAnswer(question, studentAnswer, modelAnswer)
     method: "POST", headers,
     body: JSON.stringify({ question, student_answer: studentAnswer, model_answer: modelAnswer }),
   });
-  if (!res.ok) throw new Error((await res.json()).detail || "Failed to evaluate answer");
+  if (!res.ok) throw new Error(await extractError(res, "Failed to evaluate answer"));
   return res.json();
 }
 
