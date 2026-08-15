@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 MAX_CONTEXT_CHARS = 40_000
 
 
-def _get_context(user_id: str, document_ids: List[int]) -> str:
+def _get_context(user_id: str, document_ids: List[str]) -> str:
     store_path = Path(f"data/vector_store/{user_id}")
     if not store_path.exists():
         return ""
@@ -42,7 +42,7 @@ def _groq_json(system: str, prompt: str) -> dict:
     return json.loads(response.choices[0].message.content)
 
 
-def generate_quiz(user_id: str, document_ids: List[int], num_questions: int = 10, question_type: str = "mixed") -> dict:
+def generate_quiz(user_id: str, document_ids: List[str], num_questions: int = 10, question_type: str = "mixed") -> dict:
     context = _get_context(user_id, document_ids)
     if not context:
         raise ValueError("No content found for the selected documents.")
@@ -98,7 +98,7 @@ Return JSON exactly like this:
     return result
 
 
-def generate_flashcards(user_id: str, document_ids: List[int], num_cards: int = 15) -> dict:
+def generate_flashcards(user_id: str, document_ids: List[str], num_cards: int = 15) -> dict:
     context = _get_context(user_id, document_ids)
     if not context:
         raise ValueError("No content found for the selected documents.")
@@ -132,7 +132,7 @@ Category must be one of: Definition, Concept, Formula, Process, Fact, Example"""
     return result
 
 
-def extract_key_concepts(user_id: str, document_ids: List[int]) -> dict:
+def extract_key_concepts(user_id: str, document_ids: List[str]) -> dict:
     context = _get_context(user_id, document_ids)
     if not context:
         raise ValueError("No content found for the selected documents.")
@@ -163,7 +163,7 @@ Generate 8-12 key terms, 4-6 main topics, and 5-8 likely exam questions."""
     return result
 
 
-def generate_study_plan(user_id: str, document_ids: List[int], exam_date: str, hours_per_day: float = 2.0) -> dict:
+def generate_study_plan(user_id: str, document_ids: List[str], exam_date: str, hours_per_day: float = 2.0) -> dict:
     context = _get_context(user_id, document_ids)
     if not context:
         raise ValueError("No content found for the selected documents.")
@@ -207,7 +207,7 @@ Cover ALL {days_available} days. Progress from foundations to advanced. Reserve 
     return result
 
 
-def generate_active_recall_question(user_id: str, document_ids: List[int], previous_questions: List[str] = None) -> dict:
+def generate_active_recall_question(user_id: str, document_ids: List[str], previous_questions: List[str] = None) -> dict:
     context = _get_context(user_id, document_ids)
     if not context:
         raise ValueError("No content found for the selected documents.")

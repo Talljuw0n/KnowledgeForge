@@ -12,7 +12,7 @@ class Indexer:
         self.embedding_service = EmbeddingService()
         self.store_path = Path(f"data/vector_store/{user_id}")
     
-    def index_document(self, document_data: dict, document_id: int) -> int:
+    def index_document(self, document_data: dict, document_id: str) -> int:
         """Index a document into user-specific vectorstore with document_id"""
         # Chunk the document
         chunker = TextChunker()

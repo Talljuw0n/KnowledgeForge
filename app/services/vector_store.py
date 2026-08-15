@@ -31,7 +31,7 @@ class FAISSVectorStore:
 
         return results
 
-    def delete_by_document_id(self, document_id: int):
+    def delete_by_document_id(self, document_id):
         """Remove all vectors belonging to document_id and rebuild the index."""
         keep_indices = [
             i for i, m in enumerate(self.metadata)
@@ -56,11 +56,11 @@ class FAISSVectorStore:
         self.index = new_index
         self.metadata = [self.metadata[i] for i in keep_indices]
 
-    def get_by_document_ids(self, document_ids: List[int]) -> List[Dict]:
+    def get_by_document_ids(self, document_ids: List[str]) -> List[Dict]:
         """Return all chunks for the given document IDs, ordered by page."""
         id_set = set(document_ids)
         results = [m for m in self.metadata if m.get("document_id") in id_set]
-        results.sort(key=lambda x: (x.get("document_id", 0), x.get("page", 0)))
+        results.sort(key=lambda x: (x.get("document_id", ""), x.get("page", 0)))
         return results
 
     def save(self):

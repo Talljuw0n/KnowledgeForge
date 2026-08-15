@@ -10,28 +10,28 @@ logger = logging.getLogger(__name__)
 
 
 class QuizRequest(BaseModel):
-    document_ids: List[int]
+    document_ids: List[str]
     num_questions: int = 10
     question_type: str = "mixed"
 
 
 class FlashcardRequest(BaseModel):
-    document_ids: List[int]
+    document_ids: List[str]
     num_cards: int = 15
 
 
 class ConceptsRequest(BaseModel):
-    document_ids: List[int]
+    document_ids: List[str]
 
 
 class StudyPlanRequest(BaseModel):
-    document_ids: List[int]
+    document_ids: List[str]
     exam_date: str
     hours_per_day: float = 2.0
 
 
 class RecallQuestionRequest(BaseModel):
-    document_ids: List[int]
+    document_ids: List[str]
     previous_questions: Optional[List[str]] = []
 
 

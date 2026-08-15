@@ -21,7 +21,7 @@ MAX_FILE_MB = 100
 _status: Dict[str, str] = {}
 
 
-def _process_in_background(file_path: Path, user_id: str, document_id: int, status_key: str):
+def _process_in_background(file_path: Path, user_id: str, document_id: str, status_key: str):
     try:
         document = DocumentLoader.load(file_path)
 
@@ -103,7 +103,7 @@ async def upload_document(
 
 
 @router.get("/documents/{document_id}/status")
-async def get_document_status(document_id: int, user=Depends(get_current_user)):
+async def get_document_status(document_id: str, user=Depends(get_current_user)):
     status_key = f"{user.id}:{document_id}"
     raw = _status.get(status_key)
 
