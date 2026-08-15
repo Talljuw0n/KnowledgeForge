@@ -1,14 +1,16 @@
 """
 Singleton embedding service - ensures only ONE model is loaded in memory
 """
-from sentence_transformers import SentenceTransformer
 from typing import List
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingService:
     _instance = None
     _model = None
-    
+
     def __new__(cls, model_name: str = "all-MiniLM-L6-v2"):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -17,11 +19,13 @@ class EmbeddingService:
 
     @property
     def model(self):
-        """Lazy load the model only when first accessed"""
         if EmbeddingService._model is None:
-            print(f"🔄 Loading embedding model: {self.model_name}")
+            # Lazy import — sentence_transformers pulls in PyTorch (~60 s to import).
+            # Deferring to first use cuts server startup from ~76 s to ~5 s.
+            from sentence_transformers import SentenceTransformer
+            logger.info("Loading embedding model %s", self.model_name)
             EmbeddingService._model = SentenceTransformer(self.model_name)
-            print(f"✅ Model loaded successfully")
+            logger.info("Embedding model ready")
         return EmbeddingService._model
 
     def embed_texts(self, texts: List[str]):
