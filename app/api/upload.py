@@ -1,11 +1,10 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, BackgroundTasks
 from pathlib import Path
-from typing import Dict
 import aiofiles
 
 from app.services.document_loader import DocumentLoader
 from app.services.indexer import Indexer
-from app.services.database import save_document
+from app.services.database import save_document, update_document_status, get_document
 from app.services.llm import get_current_user
 import logging
 
@@ -17,31 +16,28 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 MAX_FILE_MB = 100
 
-# In-memory processing status: "{user_id}:{document_id}" -> "processing"|"ready"|"failed:<msg>"
-_status: Dict[str, str] = {}
 
-
-def _process_in_background(file_path: Path, user_id: str, document_id: str, status_key: str):
+def _process_in_background(file_path: Path, user_id: str, document_id: str):
     try:
         document = DocumentLoader.load(file_path)
 
         if len(document["pages"]) == 0:
-            _status[status_key] = "failed:No text could be extracted from this file."
+            update_document_status(document_id, "failed", "No text could be extracted from this file.")
             return
 
         indexer = Indexer(user_id=user_id)
         num_chunks = indexer.index_document(document, document_id)
 
         if num_chunks == 0:
-            _status[status_key] = "failed:No text chunks could be created."
+            update_document_status(document_id, "failed", "No text chunks could be created.")
             return
 
-        _status[status_key] = "ready"
+        update_document_status(document_id, "ready")
         logger.info(f"Background processing done: {document_id} ({num_chunks} chunks)")
 
     except Exception as e:
         logger.error(f"Background processing failed for doc {document_id}: {e}", exc_info=True)
-        _status[status_key] = f"failed:{str(e)}"
+        update_document_status(document_id, "failed", str(e))
     finally:
         if file_path.exists():
             file_path.unlink()
@@ -84,10 +80,7 @@ async def upload_document(
     doc_record = save_document(user_id=user_id, filename=file.filename)
     document_id = doc_record["id"]
 
-    # Track status and kick off background processing
-    status_key = f"{user_id}:{document_id}"
-    _status[status_key] = "processing"
-    background_tasks.add_task(_process_in_background, file_path, user_id, document_id, status_key)
+    background_tasks.add_task(_process_in_background, file_path, user_id, document_id)
 
     logger.info(f"Upload accepted for user {user_id}, doc {document_id} ({size_mb:.1f} MB) — processing in background")
 
@@ -104,24 +97,14 @@ async def upload_document(
 
 @router.get("/documents/{document_id}/status")
 async def get_document_status(document_id: str, user=Depends(get_current_user)):
-    status_key = f"{user.id}:{document_id}"
-    raw = _status.get(status_key)
+    doc = get_document(document_id, user.id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Document not found")
 
-    if raw is None:
-        # Machine may have restarted — check the vector store directly
-        from app.services.vector_store import FAISSVectorStore
-        store_path = Path(f"data/vector_store/{user.id}")
-        if store_path.exists():
-            store = FAISSVectorStore(dim=384, store_path=store_path)
-            store.load()
-            if store.get_by_document_ids([document_id]):
-                return {"status": "ready", "document_id": document_id}
-        return {"status": "processing", "document_id": document_id}
+    if doc["status"] == "failed":
+        return {"status": "failed", "error": doc.get("error"), "document_id": document_id}
 
-    if raw.startswith("failed:"):
-        return {"status": "failed", "error": raw[7:], "document_id": document_id}
-
-    return {"status": raw, "document_id": document_id}
+    return {"status": doc["status"], "document_id": document_id}
 
 
 @router.get("/documents")
