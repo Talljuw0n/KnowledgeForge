@@ -37,13 +37,20 @@ export async function uploadDocument(file) {
 }
 
 export async function pollDocumentStatus(documentId, onStatus) {
-  const headers = await authHeader();
   const interval = 3000;
 
   return new Promise((resolve, reject) => {
     const check = async () => {
       try {
+        // Fetch a fresh token every poll — a long-running poll can outlive
+        // the session token that was valid when polling started.
+        const headers = await authHeader();
         const res = await fetch(`${API_URL}/api/documents/${documentId}/status`, { headers });
+        if (!res.ok) {
+          // stale/expired token or transient error — retry with a fresh token
+          setTimeout(check, interval);
+          return;
+        }
         const data = await res.json();
         onStatus(data.status, data.elapsed_seconds);
         if (data.status === "ready") return resolve(data);

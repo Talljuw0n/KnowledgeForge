@@ -30,7 +30,7 @@ def _get_context(user_id: str, document_ids: List[str]) -> str:
 def _groq_json(system: str, prompt: str) -> dict:
     client = Groq(api_key=os.getenv("GROQ_API_KEY"))
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},

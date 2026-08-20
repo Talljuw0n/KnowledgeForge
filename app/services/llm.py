@@ -199,7 +199,7 @@ If asked about something harmful or illegal, politely decline."""
 
 class LLMService:
     """
-    LLM service using Groq's Llama 3.3 70B model.
+    LLM service using Groq's gpt-oss-120b model.
     Supports both regular and streaming responses with chat history.
     """
 
@@ -209,7 +209,7 @@ class LLMService:
             raise ValueError("GROQ_API_KEY environment variable not set")
 
         self.client = Groq(api_key=api_key)
-        self.model = "llama-3.3-70b-versatile"
+        self.model = "openai/gpt-oss-120b"
         self.temperature = temperature
 
         logger.info(f"LLMService initialized with model {self.model}")
