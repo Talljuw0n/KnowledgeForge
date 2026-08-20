@@ -1,9 +1,11 @@
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 import fitz  # PyMuPDF
 from docx import Document
 from PIL import Image
 import pytesseract
 import io
+import os
 
 
 class DocumentLoader:
@@ -26,27 +28,42 @@ class DocumentLoader:
     MAX_OCR_PAGES = 150  # cap OCR to avoid runaway processing on large scanned PDFs
 
     @staticmethod
+    def _ocr_page(i: int, img: Image.Image) -> tuple:
+        try:
+            # --oem 1 = LSTM only (faster); --psm 6 = uniform text block
+            text = pytesseract.image_to_string(img, config="--oem 1 --psm 6")
+        except Exception as e:
+            print(f"OCR failed for page {i+1}: {e}")
+            text = ""
+        return i, text
+
+    @staticmethod
     def _load_pdf(file_path: Path) -> dict:
         doc = fitz.open(file_path)
-        pages = []
-        ocr_count = 0
+        pages = [None] * len(doc)
+        to_ocr = []
 
+        # First pass: pull embedded text and render page images for scanned
+        # pages. Rendering is cheap; the actual OCR call is the slow part.
         for i, page in enumerate(doc):
             text = page.get_text()
 
-            if not text.strip() and ocr_count < DocumentLoader.MAX_OCR_PAGES:
-                try:
-                    # 1.5x zoom — good enough for tesseract, 44% fewer pixels than 2x
-                    pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5))
-                    img = Image.open(io.BytesIO(pix.tobytes("png")))
-                    # --oem 1 = LSTM only (faster); --psm 6 = uniform text block
-                    text = pytesseract.image_to_string(img, config="--oem 1 --psm 6")
-                    ocr_count += 1
-                except Exception as e:
-                    print(f"OCR failed for page {i+1}: {e}")
-                    text = ""
+            if not text.strip() and len(to_ocr) < DocumentLoader.MAX_OCR_PAGES:
+                # 1.5x zoom — good enough for tesseract, 44% fewer pixels than 2x
+                pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5))
+                img = Image.open(io.BytesIO(pix.tobytes("png")))
+                to_ocr.append((i, img))
+            else:
+                pages[i] = {"page": i + 1, "text": text}
 
-            pages.append({"page": i + 1, "text": text})
+        # Second pass: OCR the scanned pages concurrently. pytesseract shells
+        # out to the tesseract binary, which releases the GIL, so this
+        # actually overlaps across CPU cores instead of running one page at a time.
+        if to_ocr:
+            max_workers = min(len(to_ocr), (os.cpu_count() or 1) * 2)
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                for i, text in executor.map(lambda args: DocumentLoader._ocr_page(*args), to_ocr):
+                    pages[i] = {"page": i + 1, "text": text}
 
         return {
             "filename": file_path.name,
